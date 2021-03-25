@@ -1,1 +1,14 @@
-# sb-enhancer
+# Smartbroker Enhancer
+
+This is the source code of a Google Chrome Extension to enhance the UI of smartbroker.de as long as there is no new release.
+
+The extension takes care of the following things:
+
+- Automatically ticks the website every 4min to keep you logged in (I hate it to be logged out after 4min)
+- Allows you to get notified if an automatic sell happens
+- Fixes this badly designed "Kaufen" button
+- Account number prefill (without the need to store the password in the browser)
+- Keep navigation menu open ("Depot" and "Trading")
+- Allows transfer of all currently hold stocks into Finanzen.net
+
+Please use the issue function to propose new functionality.
