@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Title</title>
+		<link rel="stylesheet" media="all" type="text/css" href="/css/simple-grid.css" />
+        <style>
+			html, body {
+    			height: initial !important;
+			}
+			#main {
+				padding: 10px;
+				min-width: 480px;
+			}
+			.transfer-status{
+				font-size: 10px;
+    			color: #0aad0a;
+			}
+			.finanzen-net-status{
+				font-size: 10px;
+			}
+        </style>
+    </head>
+    <body>
+		<div id="main" class="container">
+			<div class="row">
+				<h2 class="col-12">Smartbroker Enhancer</h2>
+			</div>
+			<div class="row">
+				<div class="col-8">
+					<label>Enable change check:</label>
+					<br/>
+					<small>Will check for changes on <a href="https://b2b.dab-bank.de/smartbroker/Depot/Auftragsuebersicht/">this page</a> (Tab: "Ausgef&uuml;hrte Auftr&auml;ge") while you keep it open and will notify you on changes.</small>
+				</div>
+				<div class="col-4">
+					<input type="checkbox" data-bind="checked: enableChangeCheck" >
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-8">
+					<label>Login-ID:</label>
+					<br/>
+					<small>Simple option to prefill your login ID if you do not want to use a password manager.</small>
+				</div>
+				<div class="col-4">
+					<input type="text" data-bind="value: loginId, valueUpdate: 'keyup'" maxlength="12" size="12">
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-6">
+					<label>Finanzen.net Connector:</label>
+					<br/>
+					<small>Allows to store all Smartbroker stocks from the depot page <a href="https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/">here</a> to a Finanzen.net depot.</small>
+				</div>
+				<div class="col-6">
+					 <!-- ko if: finNetDepots().length > 0 && !!finNetLoggedIn() -->
+						<select data-bind="options: finNetDepots,
+							optionsText: function(item) {
+								return item.name
+							},
+							optionsValue: function(item) {
+								return item.code
+							},
+							value: finNetSelectedDepot,
+							optionsCaption: 'Choose depot...',
+							valueAllowUnset: true"></select>
+							<br/>
+    				<!-- /ko -->
+					<!-- ko if: !(finNetDepots().length > 0 && !!finNetLoggedIn()) -->
+						<div class="finanzen-net-status" data-bind="text: finNetTransferStatus"></div>
+    				<!-- /ko -->
+					 <!-- ko if: finNetSelectedDepot().length > 0 && !!finNetLoggedIn() -->
+						<button data-bind="click: function(){transferStocks()}">Transfer</button>
+						<br/>
+						<div class="transfer-status" data-bind="text: finNetTransferStatus"></div>
+					<!-- /ko -->
+
+				</div>
+			</div>
+			<!--<div class="row">
+				<div class="col-8">
+				   
+				</div>
+				<div class="col-4">
+					
+					<button data-bind="click: function(){getFinanzenNetDepot()}">getFinanzenNetDepot</button>
+				</div>
+			</div>-->
+		</div>
+			
+		<script src="/js/knockout/knockout-3.5.1.js"></script>
+		<script src="popup.js"></script>
+    </body>
+</html>
