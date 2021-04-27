@@ -54,7 +54,7 @@ window.SmartbrokerEnhancer = new (function () {
 		}
 	}
 	self.checkForLoginPage = function(){
-		if(window.location.href == 'https://b2b.dab-bank.de/smartbroker/'){
+		if(window.location.href == 'https://b2b.dab-bank.de/smartbroker/' && self.loginId.length > 5){
 			$('#zugangsnummer').val(self.loginId);
 			$('#identifier').focus();
 		}
