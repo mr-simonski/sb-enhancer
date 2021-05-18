@@ -29,7 +29,7 @@
 				<div class="col-8">
 					<label>Enable change check:</label>
 					<br/>
-					<small>Will check for changes on <a href="https://b2b.dab-bank.de/smartbroker/Depot/Auftragsuebersicht/">this page</a> (Tab: "Ausgef&uuml;hrte Auftr&auml;ge") while you keep it open and will notify you on changes.</small>
+					<small>Will check for changes on <a href="https://b2b.dab-bank.de/smartbroker/Depot/Auftragsuebersicht/" target="_blank">this page</a> (Tab: "Ausgef&uuml;hrte Auftr&auml;ge") while you keep it open and will notify you on changes.</small>
 				</div>
 				<div class="col-4">
 					<input type="checkbox" data-bind="checked: enableChangeCheck" >
@@ -49,7 +49,7 @@
 				<div class="col-6">
 					<label>Finanzen.net Connector:</label>
 					<br/>
-					<small>Allows to store all Smartbroker stocks from the depot page <a href="https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/">here</a> to a Finanzen.net depot.</small>
+					<small>Allows to store all Smartbroker stocks from the depot page <a href="https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/" target="_blank">here</a> to a Finanzen.net depot.</small>
 				</div>
 				<div class="col-6">
 					 <!-- ko if: finNetDepots().length > 0 && !!finNetLoggedIn() -->
@@ -76,15 +76,34 @@
 
 				</div>
 			</div>
-			<!--<div class="row">
+			<div class="row">
 				<div class="col-8">
-				   
+				   <label>Track Stock Transfer History:</label>
+					<br/>
+					<!-- ko if: stockTransactionLength() == 0 -->
+						<small>To make this work, you need to: 
+						<ul>
+							<li>..be on <a href="https://b2b.dab-bank.de/smartbroker/Depot/Auftragsuebersicht/" target="_blank">this page</a> (Tab: "Ausgef&uuml;hrte Auftr&auml;ge") AND</li>
+							<li>..select the longest time period possible AND</li>
+							<li>..select the 100 entries per page (at the very bottom of the page)</li>
+						</ul>
+						-> then hit the "Collect History" button.</small>
+    				<!-- /ko -->
+					<!-- ko if: stockTransactionLength() > 0 -->
+						<small>Recorded <span data-bind="text: stockTransactionLength"></span> transactions.</small>
+    				<!-- /ko -->
 				</div>
 				<div class="col-4">
+				
+					<!-- ko if: stockTransactionLength() == 0 -->
+						<button id="collectStockTransferHistory" data-bind="click: function(){viewModel.collectStockTransferHistory()}">Collect History</button>
+    				<!-- /ko -->
+					<!-- ko if: stockTransactionLength() > 0 -->
+						<button data-bind="click: function(){viewModel.deleteStockTransferHistory()}">Delete History</button>
+    				<!-- /ko -->
 					
-					<button data-bind="click: function(){getFinanzenNetDepot()}">getFinanzenNetDepot</button>
 				</div>
-			</div>-->
+			</div>
 		</div>
 			
 		<script src="/js/knockout/knockout-3.5.1.js"></script>

@@ -39,9 +39,14 @@
       ],
       "js": [
         "js/jquery/jquery.js",
+        "js/datatables/datatables.min.js",
         "js/moment/moment.js",
+        "js/chartjs/chart.min.js",
         "js/knockout/knockout-3.5.1.js",
         "src/inject/inject.js"
+      ],
+      "css": [
+        "js/datatables/datatables.css"
       ]
     }
   ],

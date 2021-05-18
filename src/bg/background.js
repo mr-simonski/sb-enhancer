@@ -2,6 +2,56 @@ window.SmartbrokerEnhancerBackground = new (function () {
 	var self = this;
 	
 
+  self.collectStockTransactionHistory = function(){
+
+    return new Promise(function(resolve, reject) {
+        // read out stocks
+        chrome.tabs.query({ windowType: 'normal',url:'https://b2b.dab-bank.de/smartbroker/Depot/Auftragsuebersicht/'}, function(tabs) {
+          let tab = tabs[0];
+          chrome.tabs.sendMessage(tab.id, {type:"readOutPastStocks"}, function(stocks){
+            console.log(stocks);
+            if(typeof stocks !== 'undefined' && Object.keys(stocks).length > 0){
+                
+              // add received stocks
+              chrome.storage.local.get([ "stockTransactions"], function(savedStocks){
+                // savedStocks is: { "stockTransactions": stocks}
+                console.log(savedStocks);
+                if(savedStocks == null || savedStocks.stockTransactions == null || typeof savedStocks.stockTransactions !== 'object' ){
+                  savedStocks = {};
+                  savedStocks['stockTransactions'] = {};
+                }
+                for(let transactionId of Object.keys(stocks)){
+                  if(savedStocks.stockTransactions[transactionId] == null){
+                    savedStocks.stockTransactions[transactionId] = stocks[transactionId];
+                  }else{
+                    console.log(transactionId + ' already in');
+                  }
+                }
+                chrome.storage.local.set(savedStocks, function(){
+                  console.log('stocks saved');
+                  resolve(savedStocks.stockTransactions);
+                });
+                return true;
+              });
+
+            }else{
+                console.error('Was not able to receive stocks');
+            }
+            return true;
+          });            
+          return true;
+        });
+    });
+  };
+
+  self.deleteStockTransactionHistory = function(){
+    chrome.storage.local.set({ "stockTransactions": {}}, function(){
+      console.log('stocks deleted');
+      return true;
+    });
+    return true;
+  };
+
   self.transferStocks = async function(){
     // read out stocks
     chrome.tabs.query({ windowType: 'normal',url:'https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/'}, async function(tabs) {
@@ -133,15 +183,35 @@ window.SmartbrokerEnhancerBackground = new (function () {
             break;
           case "get-config":
             console.log("config request received")
-            chrome.storage.local.get([ "configToStore"], function(result){
-              console.log(result.configToStore);
-              sendResponse({answer: "reported", data: result.configToStore});
+            chrome.storage.local.get([ "configToStore"], function(configResult){
+              chrome.storage.local.get([ "stockTransactions"], function(stockTransactionsResult){
+                configResult.configToStore.stockTransactionLength = stockTransactionsResult != null && stockTransactionsResult.stockTransactions != null && typeof stockTransactionsResult.stockTransactions === 'object' ? Object.keys(stockTransactionsResult.stockTransactions).length : 0;
+                console.log(configResult.configToStore);
+                sendResponse({answer: "reported", data: configResult.configToStore});
+              });
             });
             break;
           case "transfer-stocks":
             console.log("transfer of stocks requested");
             self.finNetSelectedDepot = message.data.finNetSelectedDepot;
             self.transferStocks();
+            break;
+          case "track-stock-transfers":
+            console.log("collection task for all transactions of stocks requested");
+            self.collectStockTransactionHistory().then(resultStocks => {
+              sendResponse({answer: "reported", data: Object.keys(resultStocks).length});
+            });
+            break;
+          case "delete-stock-transfers":
+            console.log("deletion of history of stock transfers requested");
+            self.deleteStockTransactionHistory();
+            break;
+          case "get-track-stock-transfers":
+            console.log("stockTransactions request received")
+            chrome.storage.local.get([ "stockTransactions"], function(result){
+              console.log(result);
+              sendResponse({answer: "reported", data: result});
+            });
             break;
           default: 
             console.log('received something undefined in background.js');

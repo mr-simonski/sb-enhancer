@@ -15,6 +15,7 @@ var viewModelModel = function(){
     self.enableChangeCheck = ko.observable(true);
     self.loginId = ko.observable("");
     self.finNetLoggedIn = ko.observable(false);
+    self.stockTransactionLength = ko.observable(0);
     self.finNetDepots = ko.observableArray(); 
     self.finNetSelectedDepot = ko.observable("");
     self.finNetTransferStatus = ko.observable("Checking for login status on finanzen.net");
@@ -73,6 +74,25 @@ var viewModelModel = function(){
             self.finNetLoggedIn(false);
         }
     }
+
+    self.collectStockTransferHistory = function(){
+        chrome.extension.sendMessage({type:"track-stock-transfers"}, function(response) {
+            if(response != null && response.answer != null && response.answer === 'reported' && response.data > 0){
+                self.stockTransactionLength(response.data);
+                document.querySelector('#collectStockTransferHistory').disabled = false;
+            }{
+                document.querySelector('#collectStockTransferHistory').textContent = "ERROR: Please try again!";        
+            }
+        });
+        document.querySelector('#collectStockTransferHistory').disabled = true;
+        document.querySelector('#collectStockTransferHistory').textContent = "Running..";
+    }
+    self.deleteStockTransferHistory = function(){
+        chrome.extension.sendMessage({type:"delete-stock-transfers"}, function(response) {
+           self.stockTransactionLength(0);
+        });
+        self.stockTransactionLength(0);
+    }
 }
 
 var viewModel = new viewModelModel();
@@ -83,6 +103,7 @@ chrome.extension.sendMessage({type:"get-config"}, function(response) {
         viewModel.enableChangeCheck(response.data.checkForChanges);
         viewModel.loginId(response.data.loginId);
         viewModel.finNetSelectedDepot(response.data.finNetSelectedDepot);
+        viewModel.stockTransactionLength(response.data.stockTransactionLength);
     }
     ko.applyBindings(viewModel, document.getElementById('main'));
     // init
