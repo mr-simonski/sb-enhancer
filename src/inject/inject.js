@@ -43,7 +43,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 
 			// report
 			chrome.runtime.sendMessage({messageType: "activity"}, function(response) {
-				console.log(response.answer);
+				// console.log(response.answer);
 			  });
 			
 		}
@@ -368,7 +368,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 
 	self.renderAdditionalInformation = function(data){
 		if(window.location.pathname.indexOf("smartbroker/Depot/Depotuebersicht") > -1){
-			console.log(data);
+			// console.log(data);
 			// add sums
 			self.renderDepotAdditionalSums();
 
@@ -442,7 +442,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 					}
 				}
 				self.stockData = stockData;			
-				console.log(stockData);
+				// console.log(stockData);
 				self.insertNonPrintedStocks(alreadyPrintedStocks);
 			} // end check for data
 		} // end check for depot page
@@ -471,7 +471,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 
 	self.visualizeStockTransactions = function(data){
 		if(data.srcElement.parentElement.querySelector('.se-isin-details-holder') != null) return;
-		console.log(data);
+		// console.log(data);
 
 		const isin = data.detail;
 		self.currentChart?.destroy();
