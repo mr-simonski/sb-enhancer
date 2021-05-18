@@ -106,6 +106,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 			top: 70px;\
 		}\
 		.se-isin-details-holder .btn_close{cursor: pointer}\
+		#historic-table_wrapper{margin-top: 60px}\
 		#tableDiv span.se-totalTransactions{ border-bottom: 2px dotted;cursor: pointer;line-height: 1.3em !important;}\
 		';
 
@@ -368,80 +369,107 @@ window['SmartbrokerEnhancer'] = new (function () {
 	self.renderAdditionalInformation = function(data){
 		if(window.location.pathname.indexOf("smartbroker/Depot/Depotuebersicht") > -1){
 			console.log(data);
-			let stockData = {};
-			for(let transactionId of Object.keys(data.stockTransactions)){
-				let singleTransaction = data.stockTransactions[transactionId];
-				if(typeof stockData[singleTransaction.isin] === 'undefined'){
-					stockData[singleTransaction.isin] = {};
-					stockData[singleTransaction.isin].transactions = [];
-				}
-				stockData[singleTransaction.isin].transactions.push(singleTransaction);
-			}
-			// console.log(stockData);
+			// add sums
+			self.renderDepotAdditionalSums();
 
-			// order
-			for(let isin in stockData){
-				stockData[isin].transactions = stockData[isin].transactions.sort(function(a, b) {
-					return parseInt(a.transactionId) - parseInt(b.transactionId);
-				});
-				// calc plus/minus
-				let totalAmount = 0;
-				let maxOwnedAmount = 0;
-				let currentlyOwnedAmount = 0;
-				// console.log(isin);
-				for(let transaction of stockData[isin].transactions){
-					stockData[isin].name = transaction.name;
-					stockData[isin].wkn = transaction.wkn;
-					// console.log(transaction.totalPrice);
-					totalAmount += transaction.totalPrice;
-					if(transaction.totalPrice > 0){
-						currentlyOwnedAmount += parseInt(transaction.amount);
-						if(maxOwnedAmount < currentlyOwnedAmount){
-							maxOwnedAmount = currentlyOwnedAmount;
-						}
-					}else{
-						currentlyOwnedAmount -= parseInt(transaction.amount);
+			// render historic data
+			if(data != null && data.stockTransactions != null && Object.keys(data.stockTransactions).length > 0){
+				let stockData = {};
+				for(let transactionId of Object.keys(data.stockTransactions)){
+					let singleTransaction = data.stockTransactions[transactionId];
+					if(typeof stockData[singleTransaction.isin] === 'undefined'){
+						stockData[singleTransaction.isin] = {};
+						stockData[singleTransaction.isin].transactions = [];
 					}
-					transaction.ownedAmountAtThatTime = currentlyOwnedAmount;
+					stockData[singleTransaction.isin].transactions.push(singleTransaction);
 				}
-				stockData[isin].transactions = stockData[isin].transactions.sort((a,b) => new moment(b.transactionDate + " " + b.transactionTime, "DD.MM.YYYY HH:mm:ss").diff(new moment(a.transactionDate+ " " + a.transactionTime, "DD.MM.YYYY HH:mm:ss"))); 
-				stockData[isin].totalAmount = -1 * totalAmount;
-				stockData[isin].maxOwnedAmount = maxOwnedAmount;
-				stockData[isin].currentlyOwnedAmount = currentlyOwnedAmount;
-			}
-
-			// tune nodes
-			// header/footer
-			let referenceNode = document.querySelector('#depotOverviewTable tbody tr:first-of-type th:nth-child(1)');
-			let newNode = self.htmlToElement('<th class="mdt_kurs" scope="col"><h3>Historisch</h3><div class="col"><span><a href="#">Max.Besessen</a></span><span><a href="#">Total G/V</a></span><span><a href="#">Transaktionen</a></span></div></th>');
-			referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
-
-			referenceNode = document.querySelector('#depotOverviewTable tbody tr:last-of-type td:nth-child(1)');
-			newNode = self.htmlToElement('<td></td>');
-			referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
-
-			let alreadyPrintedStocks = [];
-			for(let trNode of document.querySelectorAll('#depotOverviewTable tbody tr.odd,#depotOverviewTable tbody tr.even')){
-				let isin = trNode.querySelector('td:first-of-type div div.bez').innerText;
-				if(typeof stockData[isin] !== 'undefined'){
-					alreadyPrintedStocks.push(isin);
-					let currentValue = trNode.querySelector('td:nth-child(4) span.betrag').innerText;
-					currentValue = parseFloat(currentValue.replace('.','').replace(',','.'));
-					referenceNode = trNode.querySelector('td:nth-child(1)');
-					const totalPlusMinus = stockData[isin].totalAmount + currentValue;
-					newNode = self.htmlToElement('<td><div class="col"><span class="inakt">'+self.numberFormatter(stockData[isin].maxOwnedAmount)+' Stück</span>\
-					<span class="se-totalPlusMinus '+(totalPlusMinus > 0 ? 'pos':'neg')+'" >'+ self.priceFormatter(totalPlusMinus) +'  EUR</span>\
-					<span class="se-totalTransactions inakt" onclick="this.dispatchEvent(new CustomEvent(\'showIsinDetails\', {bubbles:true, detail: \''+isin+'\'}))">'+ stockData[isin].transactions.length +' Transaktion' + (stockData[isin].transactions.length > 1 ? 'en':'') + '</span>\</div></td>');
-					referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+				// console.log(stockData);
+	
+				// order
+				for(let isin in stockData){
+					stockData[isin].transactions = stockData[isin].transactions.sort(function(a, b) {
+						return parseInt(a.transactionId) - parseInt(b.transactionId);
+					});
+					// calc plus/minus
+					let totalAmount = 0;
+					let maxOwnedAmount = 0;
+					let currentlyOwnedAmount = 0;
+					// console.log(isin);
+					for(let transaction of stockData[isin].transactions){
+						stockData[isin].name = transaction.name;
+						stockData[isin].wkn = transaction.wkn;
+						// console.log(transaction.totalPrice);
+						totalAmount += transaction.totalPrice;
+						if(transaction.totalPrice > 0){
+							currentlyOwnedAmount += parseInt(transaction.amount);
+							if(maxOwnedAmount < currentlyOwnedAmount){
+								maxOwnedAmount = currentlyOwnedAmount;
+							}
+						}else{
+							currentlyOwnedAmount -= parseInt(transaction.amount);
+						}
+						transaction.ownedAmountAtThatTime = currentlyOwnedAmount;
+					}
+					stockData[isin].transactions = stockData[isin].transactions.sort((a,b) => new moment(b.transactionDate + " " + b.transactionTime, "DD.MM.YYYY HH:mm:ss").diff(new moment(a.transactionDate+ " " + a.transactionTime, "DD.MM.YYYY HH:mm:ss"))); 
+					stockData[isin].totalAmount = -1 * totalAmount;
+					stockData[isin].maxOwnedAmount = maxOwnedAmount;
+					stockData[isin].currentlyOwnedAmount = currentlyOwnedAmount;
 				}
-			}
-			self.stockData = stockData;			
-			console.log(stockData);
-			self.insertNonPrintedStocks(alreadyPrintedStocks);
-		}
+	
+				// tune nodes
+				// header/footer
+				let referenceNode = document.querySelector('#depotOverviewTable tbody tr:first-of-type th:nth-child(1)');
+				let newNode = self.htmlToElement('<th class="mdt_kurs" scope="col"><h3>Historisch</h3><div class="col"><span><a href="#">Max.Besessen</a></span><span><a href="#">Total G/V</a></span><span><a href="#">Transaktionen</a></span></div></th>');
+				referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+	
+				referenceNode = document.querySelector('#depotOverviewTable tbody tr:last-of-type td:nth-child(1)');
+				newNode = self.htmlToElement('<td></td>');
+				referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+	
+				let alreadyPrintedStocks = [];
+				for(let trNode of document.querySelectorAll('#depotOverviewTable tbody tr.odd,#depotOverviewTable tbody tr.even')){
+					let isin = trNode.querySelector('td:first-of-type div div.bez').innerText;
+					if(typeof stockData[isin] !== 'undefined'){
+						alreadyPrintedStocks.push(isin);
+						let currentValue = trNode.querySelector('td:nth-child(4) span.betrag').innerText;
+						currentValue = parseFloat(currentValue.replace('.','').replace(',','.'));
+						referenceNode = trNode.querySelector('td:nth-child(1)');
+						const totalPlusMinus = stockData[isin].totalAmount + currentValue;
+						newNode = self.htmlToElement('<td><div class="col"><span class="inakt">'+self.numberFormatter(stockData[isin].maxOwnedAmount)+' Stück</span>\
+						<span class="se-totalPlusMinus '+(totalPlusMinus > 0 ? 'pos':'neg')+'" >'+ self.priceFormatter(totalPlusMinus) +'  EUR</span>\
+						<span class="se-totalTransactions inakt" onclick="this.dispatchEvent(new CustomEvent(\'showIsinDetails\', {bubbles:true, detail: \''+isin+'\'}))">'+ stockData[isin].transactions.length +' Transaktion' + (stockData[isin].transactions.length > 1 ? 'en':'') + '</span>\</div></td>');
+						referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+					}
+				}
+				self.stockData = stockData;			
+				console.log(stockData);
+				self.insertNonPrintedStocks(alreadyPrintedStocks);
+			} // end check for data
+		} // end check for depot page
 	}
 
-	self.visualizeThis = function(data){
+	self.renderDepotAdditionalSums = function(){
+		let posSum = 0, negSum = 0;
+		for(let tdNode of document.querySelectorAll('#depotOverviewTable tbody tr.odd td:nth-of-type(4) span:nth-of-type(2) span:nth-of-type(1),#depotOverviewTable tbody tr.even td:nth-of-type(4) span:nth-of-type(2) span:nth-of-type(1)')){
+			let value = tdNode.textContent;
+			value = value.replaceAll(".", "").replace(",",".");
+			value = parseFloat(value);
+			if(value>0){
+				posSum += value;
+			}else{
+				negSum += value;
+			}
+		}
+
+		let sumNode = document.querySelector('#depotOverviewTable tbody tr:last-of-type td:nth-of-type(3)');
+		let newNode = self.htmlToElement('<span class="betrag pos">(Pos.Sum: '+self.priceFormatter(posSum)+' EUR)</span>');
+		sumNode.appendChild(newNode);
+		newNode = self.htmlToElement('<span class="betrag neg">(Neg.Sum: '+self.priceFormatter(negSum)+' EUR)</span>');
+		sumNode.appendChild(newNode);
+	}
+
+
+	self.visualizeStockTransactions = function(data){
 		if(data.srcElement.parentElement.querySelector('.se-isin-details-holder') != null) return;
 		console.log(data);
 
@@ -576,7 +604,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 				clearInterval(self.intervals['readyStateCheckInterval']);
 
 				console.log("Hello, inject.js initilized...");
-				document.addEventListener('showIsinDetails', self.visualizeThis, false);
+				document.addEventListener('showIsinDetails', self.visualizeStockTransactions, false);
 				self.intervals['keepActive'] = setInterval(self.keepActive, 60000);
 				self.intervals['checkForLogoutPage'] = setInterval(self.checkForLogoutPage, 1000);
 				self.intervals['checkForLoginPage'] = setInterval(self.checkForLoginPage, 1000);
