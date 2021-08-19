@@ -186,6 +186,9 @@ window['SmartbrokerEnhancer'] = new (function () {
 
 	self.readOutStocks = function(){
 		let resultStocks = [];
+		if(window.location.pathname.indexOf('Depot/Depotuebersicht/') < 0){
+			return resultStocks;
+		}
 		let listOfStocks = document.querySelector('#depotOverviewTable').querySelectorAll('tr.odd,tr.even');
 		// run over stocks
 		for(stockItem of listOfStocks){
@@ -204,7 +207,7 @@ window['SmartbrokerEnhancer'] = new (function () {
 					stockObj['amount'] = cell.querySelectorAll('div.bez')[1].textContent.trim();
 					stockObj['amount'] = stockObj['amount'].replace('.','').replace('Stück','').trim();
 						break;
-					case 1:
+					case 2:
 					// get currency
 					stockObj['currency'] = cell.querySelectorAll('span.inakt')[0].textContent.trim();
 					// get transactionDate
@@ -598,62 +601,183 @@ window['SmartbrokerEnhancer'] = new (function () {
 		template.innerHTML = html;
 		return template.content.firstChild;
 	}
+
+	self.updateTradingViewStocks = async function(data){
+		let depot = data.depot;
+		let stocks = data.stocks;
+		let exchange = data.exchange;
+
+		let symbols = [];
+		// get all current stocks
+		response = await fetch('https://www.tradingview.com/api/v1/symbols_list/custom/', {
+			method: 'get'
+		});
+		if(response.status == 200 ){
+			let json = JSON.parse(await response.text());
+			if(json != null && typeof json === 'object' && json[0].id != null){
+				// filter current depot
+				let depotJson = json.filter(a => a.id === depot);
+				if(depotJson.length > 0){
+				  symbols = depotJson[0].symbols;
+				}
+			}
+		}
+	
+		// now send delete requests
+		let success = true;
+		let counter = 0;
+		if(symbols.length > 0){
+			success = false;
+			for(symbol of symbols){
+				self.reportStockTransfer('tradingView', ++counter + "/" + symbols.length + ": deleting '" + symbol + "'...");
+				let response = await fetch('https://www.tradingview.com/api/v1/symbols_list/custom/' + depot + '/remove/', {
+					method: 'POST', 
+					credentials:'include',
+					headers: {
+					'Content-Type': 'application/json',
+			
+					},
+					body: JSON.stringify([symbol])
+				}).then(result => {success = true})
+				.catch(error => {console.log('error============:', error); success = false;});
+			}
+		}
+
+
+		if(success){
+			counter = 0;
+			// transfer current stocks
+			for(let stock of stocks){
+			  	counter++;
+				// search stock
+				let stockNameCleaned = stock.name.replaceAll(/\,|\-/ig," ");
+				let urlPattern = 'https://symbol-search.tradingview.com/symbol_search/?text='+stockNameCleaned+'&exchange=FWB&type=stock&domain=production';
+				response = await fetch(urlPattern, {
+					method: 'GET'
+				});
+				if(response.status == 200 ){
+					let json = JSON.parse(await response.text());
+					if(json != null && typeof json === 'object' && json.length > 0 && json[0].symbol != null){
+						// add stock, send append request
+						response = await fetch('https://www.tradingview.com/api/v1/symbols_list/custom/' + depot + '/append/', {
+							method: 'POST', 
+							credentials:'include',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify([exchange + ":" + json[0].symbol])
+						}).then(result => {})
+						.catch(error => console.log('error============:', error));
+						self.reportStockTransfer('tradingView', counter + "/" + stocks.length + ": '" + stock.name + "' transfered");
+					}
+				}
+				
+				 
+	
+				  
+			}
+			console.log('DONE!')
+			self.reportStockTransfer('tradingView', "finished");
+		}
+	
+		return true;
+	  };
+
+	self.reportStockTransfer = function(platform, report){
+		chrome.extension.sendMessage({type:"report-stock-transfer", platform:platform, report: report}, function(response) {
+			console.log('got confirmation from background: ' + response);
+			return true;
+		});
+	}
+
+
 	self.init = function(){
 		self.intervals['readyStateCheckInterval'] = setInterval(function() {
 			if (document.readyState === "complete") {
 				clearInterval(self.intervals['readyStateCheckInterval']);
-
 				console.log("Hello, inject.js initilized...");
-				document.addEventListener('showIsinDetails', self.visualizeStockTransactions, false);
-				self.intervals['keepActive'] = setInterval(self.keepActive, 60000);
-				self.intervals['checkForLogoutPage'] = setInterval(self.checkForLogoutPage, 1000);
-				self.intervals['checkForLoginPage'] = setInterval(self.checkForLoginPage, 1000);
-				self.intervals['checkForChanges'] = setInterval(self.checkForChangesInterval, 30000);
-				self.writeStyles();
-				self.replaceMenuPoints();
-				
-				console.log('Smartbroker Extension initilized..');
 
-
-				// register receiver from background.js
-				chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+				// init tradingview
+				if(window.location.hostname.indexOf("tradingview") > -1){
+					console.log('this is tradingview');
+					// register receiver from background.js
+					chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 						switch(message.type) {
-							case "config-change":
-								self.updateConfig(message.data);
+							case "update-tradingview-depot":
+								self.updateTradingViewStocks(message);
 								sendResponse(true);
-							break;
-							case "readOutStocks":
-								sendResponse(self.readOutStocks());
-							break;
-							case "readOutPastStocks":
-								self.readOutPastStocks().then(resultStocks => {
-									const lengthOfTransactions = Object.keys(resultStocks).length;
-									if(lengthOfTransactions > 0){
-										console.log("collected "+Object.keys(resultStocks).length+" transactions");
-									}
-									sendResponse(resultStocks);
-								});
 							break;
 							default: 
 								console.log('received in frontend');
 							break;
 						}
 						return true;
-				});
+					});
 
-				// request settings
-				chrome.extension.sendMessage({type:"get-config"}, function(response) {
-					console.log('got settings from background');
-					self.updateConfig(response.data);
-					return true;
-				});
+					
 
-				// request transferedStocks
-				chrome.extension.sendMessage({type:"get-track-stock-transfers"}, function(response) {
-					console.log('got settings from background');
-					self.renderAdditionalInformation(response.data);
-					return true;
-				});
+
+				}else{ // init smartbroker
+
+					document.addEventListener('showIsinDetails', self.visualizeStockTransactions, false);
+					self.intervals['keepActive'] = setInterval(self.keepActive, 60000);
+					self.intervals['checkForLogoutPage'] = setInterval(self.checkForLogoutPage, 1000);
+					self.intervals['checkForLoginPage'] = setInterval(self.checkForLoginPage, 1000);
+					self.intervals['checkForChanges'] = setInterval(self.checkForChangesInterval, 30000);
+					self.writeStyles();
+					self.replaceMenuPoints();
+					
+	
+	
+					// register receiver from background.js
+					chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+							switch(message.type) {
+								case "config-change":
+									self.updateConfig(message.data);
+									sendResponse(true);
+								break;
+								case "readOutStocks":
+									sendResponse(self.readOutStocks());
+								break;
+								case "readOutPastStocks":
+									self.readOutPastStocks().then(resultStocks => {
+										const lengthOfTransactions = Object.keys(resultStocks).length;
+										if(lengthOfTransactions > 0){
+											console.log("collected "+Object.keys(resultStocks).length+" transactions");
+										}
+										sendResponse(resultStocks);
+									});
+								break;
+								default: 
+									console.log('received in frontend');
+								break;
+							}
+							return true;
+					});
+	
+					// request settings
+					chrome.extension.sendMessage({type:"get-config"}, function(response) {
+						console.log('got settings from background');
+						self.updateConfig(response.data);
+						return true;
+					});
+					
+					// request transferedStocks
+					chrome.extension.sendMessage({type:"get-track-stock-transfers"}, function(response) {
+						console.log('got settings from background');
+						self.renderAdditionalInformation(response.data);
+						// read out current stock if possible and save
+						let stocks = self.readOutStocks();
+						chrome.extension.sendMessage({type:"save-current-stocks", stocks: stocks}, function(response) {
+							console.log('got confirmation from background: ' + response);
+							return true;
+						});
+						return true;
+					});
+
+				}
+
+				console.log('Smartbroker Extension initilized..');
 			}
 		}, 10);
 		return self;

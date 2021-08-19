@@ -1,6 +1,6 @@
 {
   "name": "Smartbroker Enhancer",
-  "version": "0.8.2",
+  "version": "0.9.4",
   "manifest_version": 2,
   "description": "This extension should help to enhance smartbroker.de",
   "homepage_url": "https://smartbroker.de",
@@ -28,13 +28,15 @@
     "*://*.dab-bank.com/*",
     "*://*.smartbroker.de/*",
     "*://*.smartbroker.com/*",
-    "*://*.finanzen.net/*"
+    "*://*.finanzen.net/*",
+    "*://*.tradingview.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://www.google.com/*",
         "https://b2b.dab-bank.de/*",
+        "https://*.tradingview.com/*",
         "https://www.smartbroker.de/*"
       ],
       "js": [

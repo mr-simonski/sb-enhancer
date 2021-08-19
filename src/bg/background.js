@@ -52,38 +52,67 @@ window.SmartbrokerEnhancerBackground = new (function () {
     return true;
   };
 
-  self.transferStocks = async function(){
+  self.transferStocks = async function(platform, selectedDepot, exchange){
     // read out stocks
-    chrome.tabs.query({ windowType: 'normal',url:'https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/'}, async function(tabs) {
-        let tab = tabs[0];
-        chrome.tabs.sendMessage(tab.id, {type:"readOutStocks"}, async function(stocks){
-            if(typeof stocks !== 'undefined' && stocks.length > 0){
-                // delete old stocks
-                let success = await self.deleteStocks(self.finNetSelectedDepot);
-                if(success){
-                    let counter = 0;
-                    // transfer current stocks
-                    for(let stock of stocks){
-                      counter++;
-                        // TGT
-                        await self.transferSingleStock(self.finNetSelectedDepot, stock.wkn, 'TGT', stock.amount, stock.buyRate, stock.buyDate, stock.totalPrice);
-                        self.reportStockTransfer(counter + "/" + stocks.length + ": '" + stock.name + "' transfered");
-                    }
-                    console.log('DONE!')
-                    self.reportStockTransfer("finished");
-                }
-            }else{
-                console.error('Was not able to transfer');
-            }
+    let stocks = await self.readStorage('currentStocks');
+    stocks = stocks.currentStocks;
+    if(stocks.length > 0){
+        self.doTransfer(platform, selectedDepot, stocks, exchange);
+      }else{
+        chrome.tabs.query({ windowType: 'normal',url:'https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/'}, async function(tabs) {
+          let tab = tabs[0];
+          chrome.tabs.sendMessage(tab.id, {type:"readOutStocks"}, async function(stocks){
+            self.doTransfer(platform, selectedDepot, stocks, exchange);
             return true;
-        });            
-        return true;
-    });
+          });            
+          return true;
+      });
+
+    }
   };
 
-  self.reportStockTransfer = function(message){
+  self.doTransfer = async function(platform, selectedDepot, stocks, exchange){
+    if(typeof stocks !== 'undefined' && stocks.length > 0){
+
+      // FINANZEN.NET
+      if(platform === 'finNet'){
+        // delete old stocks
+        let success = await self.deleteFinNetStocks(selectedDepot);
+        if(success){
+            let counter = 0;
+            // transfer current stocks
+            for(let stock of stocks){
+              counter++;
+                // TGT
+                await self.transferSingleFinNetStock(selectedDepot, stock.wkn, 'TGT', stock.amount, stock.buyRate, stock.buyDate, stock.totalPrice);
+                self.reportStockTransfer('finNet', counter + "/" + stocks.length + ": '" + stock.name + "' transfered");
+            }
+            console.log('DONE!')
+            self.reportStockTransfer('finNet', "finished");
+        }
+
+
+      // TRADINGVIEW
+      }else if(platform === 'tradingView'){
+        // delete old stocks
+        chrome.tabs.query({ windowType: 'normal',url:'https://www.tradingview.com/*'}, function(tabs) {
+          console.log(tabs.length + " tabs found");
+          let tab = tabs[0];
+          chrome.tabs.sendMessage(tab.id, {type:"update-tradingview-depot", depot: selectedDepot, stocks: stocks, exchange:exchange}, function(done){
+            console.log("done");
+          });         
+          return true;
+        });
+      }
+    }else{
+        console.error('Was not able to transfer');
+    }
+  }
+
+  self.reportStockTransfer = function(platform, message){
     let data = {};
     data['message'] = message;
+    data['exchange'] = platform;
     chrome.runtime.sendMessage({type:"transfer-update", data: data}, function(response) {
         console.log('got runtime response:');
         console.log(response);
@@ -91,7 +120,7 @@ window.SmartbrokerEnhancerBackground = new (function () {
     });
   }
 
-  self.transferSingleStock = async function(depot, wkn, exch, amount, buyRate, buyDate, totalPrice){
+  self.transferSingleFinNetStock = async function(depot, wkn, exch, amount, buyRate, buyDate, totalPrice){
     console.log('+--------------- Start to add ' + wkn);
     let response = await fetch('https://www.finanzen.net/depot/depot_suchergebnis.asp?stAction=suchen&stmode=suchen&inDepottypNr=1&inSubID=&pkdepnr='+depot+'&stDepotSuche=' + wkn, {
         method: 'get'
@@ -129,7 +158,7 @@ window.SmartbrokerEnhancerBackground = new (function () {
       return encodeURIComponent(floatPrice.toString().replace('.',','));
   };
 
-  self.deleteStocks = async function(depot){
+  self.deleteFinNetStocks = async function(depot){
     let response = await fetch('https://www.finanzen.net/depot/depot.asp?inSubID=2&pkdepnr=' + depot, {
         method: 'get'
     });
@@ -152,6 +181,18 @@ window.SmartbrokerEnhancerBackground = new (function () {
     return true;
   };
   
+  
+  self.readStorage = function(key) {
+    return new Promise((resolve, reject) => {
+        if (key != null) {
+            chrome.storage.local.get(key, function (obj) {
+                resolve(obj);
+            });
+        } else {
+            reject(null);
+        }
+    });
+  }
 
 
 
@@ -161,6 +202,11 @@ window.SmartbrokerEnhancerBackground = new (function () {
         console.log(sender.tab ? "from a content script:" + sender.tab.url : "from the extension");
     
         switch(message.type) {
+          case "report-stock-transfer":
+            console.log("received report")
+            self.reportStockTransfer(message.platform, message.report);
+            
+          break;
           case "activity":
             console.log("received activity change")
             chrome.notifications.create(
@@ -181,6 +227,13 @@ window.SmartbrokerEnhancerBackground = new (function () {
               console.log('config saved');
             });
             break;
+          case "save-current-stocks":
+            console.log("received current stocks");
+            console.log(message);
+            chrome.storage.local.set({ "currentStocks": message.stocks}, function(){
+              console.log('stocks saved');
+            });
+            break;
           case "get-config":
             console.log("config request received")
             chrome.storage.local.get([ "configToStore"], function(configResult){
@@ -193,8 +246,7 @@ window.SmartbrokerEnhancerBackground = new (function () {
             break;
           case "transfer-stocks":
             console.log("transfer of stocks requested");
-            self.finNetSelectedDepot = message.data.finNetSelectedDepot;
-            self.transferStocks();
+            self.transferStocks(message.data.platform, message.data.selectedDepot, message.data.exchange);
             break;
           case "track-stock-transfers":
             console.log("collection task for all transactions of stocks requested");
@@ -223,6 +275,8 @@ window.SmartbrokerEnhancerBackground = new (function () {
 
     
   }
+
+
 
   return self;
 

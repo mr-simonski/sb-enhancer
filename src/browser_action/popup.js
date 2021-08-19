@@ -14,11 +14,16 @@ var viewModelModel = function(){
     var self = this;
     self.enableChangeCheck = ko.observable(true);
     self.loginId = ko.observable("");
-    self.finNetLoggedIn = ko.observable(false);
     self.stockTransactionLength = ko.observable(0);
+    self.finNetLoggedIn = ko.observable(false);
     self.finNetDepots = ko.observableArray(); 
     self.finNetSelectedDepot = ko.observable("");
     self.finNetTransferStatus = ko.observable("Checking for login status on finanzen.net");
+    self.tradingViewLoggedIn = ko.observable(false);
+    self.tradingViewDepots = ko.observableArray(); 
+    self.tradingViewSelectedDepot = ko.observable("");
+    self.tradingViewExchange = ko.observable("FWB");
+    self.tradingViewTransferStatus = ko.observable("Checking for login status on TradingView");
 
     self.sendSettings = function(data){
         chrome.tabs.query({active: true, currentWindow: true},function(tabs) {
@@ -51,14 +56,20 @@ var viewModelModel = function(){
     }, self).extend({ deferred: true });
 
 
-    self.transferStocks = function(){
-        chrome.extension.sendMessage({type:"transfer-stocks", data: {finNetSelectedDepot: self.finNetSelectedDepot()}}, function(response) {
-           
-        });
+    self.transferStocks = function(platform){
+        switch(platform){
+            case "tradingView":
+                chrome.extension.sendMessage({type:"transfer-stocks", data: {platform: platform, selectedDepot: self.tradingViewSelectedDepot(), exchange: self.tradingViewExchange()}}, function(response) {});
+                break;
+            default:
+                chrome.extension.sendMessage({type:"transfer-stocks", data: {platform: platform, selectedDepot: self.finNetSelectedDepot()}}, function(response) {});
+                break;
+        }
     }
     
 
-    self.getFinanzenNetDepot = async function(){
+    self.getDepots = async function(){
+        // first check finanzen.net
         let response = await fetch('https://www.finanzen.net/depot/depot.asp', {
             method: 'get'
         });
@@ -73,6 +84,27 @@ var viewModelModel = function(){
         }else{
             self.finNetLoggedIn(false);
         }
+
+        // second check TradingView
+        response = await fetch('https://www.tradingview.com/api/v1/symbols_list/custom/', {
+            method: 'get'
+        });
+        self.tradingViewTransferStatus('');
+        if(response.status == 200 ){
+            let json = JSON.parse(await response.text());
+            if(json != null && typeof json === 'object' && json[0].id != null){
+                self.tradingViewLoggedIn(true);
+                for(let n of json){
+                    self.tradingViewDepots.push(new Depot({name:n.name, code: n.id}));
+                }
+            }else{
+                self.tradingViewLoggedIn(false);
+            }
+        }else{
+            self.tradingViewLoggedIn(false);
+        }
+
+        
     }
 
     self.collectStockTransferHistory = function(){
@@ -107,7 +139,7 @@ chrome.extension.sendMessage({type:"get-config"}, function(response) {
     }
     ko.applyBindings(viewModel, document.getElementById('main'));
     // init
-    viewModel.getFinanzenNetDepot();
+    viewModel.getDepots();
     return true;
 });
 
@@ -118,12 +150,10 @@ chrome.runtime.onMessage.addListener(
         switch(message.type) {
         case "transfer-update":
             if(message.data.message === 'finished'){
-                viewModel.finNetTransferStatus('DONE!');
-                setTimeout(function(){viewModel.finNetTransferStatus('');}, 5000);
-            }else{
-                viewModel.finNetTransferStatus(message.data.message);
-            } 
-
+                message.data.message = 'DONE!';
+                setTimeout(function(){viewModel.finNetTransferStatus('');viewModel.tradingViewTransferStatus('');}, 5000);
+            }
+            (message.data.platform !== 'tradingView') ? viewModel.tradingViewTransferStatus(message.data.message) : viewModel.finNetTransferStatus(message.data.message);
         break;
         
         default: 

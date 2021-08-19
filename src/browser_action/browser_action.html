@@ -15,7 +15,7 @@
 				font-size: 10px;
     			color: #0aad0a;
 			}
-			.finanzen-net-status{
+			.logged-in-status{
 				font-size: 10px;
 			}
         </style>
@@ -66,12 +66,47 @@
 							<br/>
     				<!-- /ko -->
 					<!-- ko if: !(finNetDepots().length > 0 && !!finNetLoggedIn()) -->
-						<div class="finanzen-net-status" data-bind="text: finNetTransferStatus"></div>
+						<div class="logged-in-status" data-bind="text: finNetTransferStatus"></div>
     				<!-- /ko -->
 					 <!-- ko if: finNetSelectedDepot().length > 0 && !!finNetLoggedIn() -->
-						<button data-bind="click: function(){transferStocks()}">Transfer</button>
+						<button data-bind="click: function(){transferStocks('finNet')}">Transfer</button>
 						<br/>
 						<div class="transfer-status" data-bind="text: finNetTransferStatus"></div>
+					<!-- /ko -->
+
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-6">
+					<label>TradingView Connector:</label>
+					<br/>
+					<small>Allows to store all Smartbroker stocks from the depot page <a href="https://b2b.dab-bank.de/smartbroker/Depot/Depotuebersicht/" target="_blank">here</a> to a TradingView Watchlist.</small>
+				</div>
+				<div class="col-6">
+					 <!-- ko if: tradingViewDepots().length > 0 && !!tradingViewLoggedIn() -->
+						<select data-bind="options: tradingViewDepots,
+							optionsText: function(item) {
+								return item.name
+							},
+							optionsValue: function(item) {
+								return item.code
+							},
+							value: tradingViewSelectedDepot,
+							optionsCaption: 'Choose depot...',
+							valueAllowUnset: true"></select>
+							<br/>
+							<label>Exchange to use:</label>
+							<br/>
+							<input type="text" data-bind="value: tradingViewExchange, valueUpdate: 'keyup'" />
+							<br/>
+    				<!-- /ko -->
+					<!-- ko if: !(tradingViewDepots().length > 0 && !!tradingViewLoggedIn()) -->
+						<div class="logged-in-status" data-bind="text: tradingViewTransferStatus"></div>
+    				<!-- /ko -->
+					 <!-- ko if: tradingViewDepots().length > 0 && !!tradingViewLoggedIn() -->
+						<button data-bind="click: function(){transferStocks('tradingView')}">Transfer</button>
+						<br/>
+						<div class="transfer-status" data-bind="text: tradingViewTransferStatus"></div>
 					<!-- /ko -->
 
 				</div>
